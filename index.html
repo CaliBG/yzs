@@ -3,15 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimalist Typography Clock</title>
+  <title>Typography Dynamic Clock</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
-    canvas { display: block; }
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden; /* 隐藏滚动条，保持画面纯净 */
+      background-color: #000;
+    }
+    canvas {
+      display: block;
+    }
   </style>
 </head>
 <body>
 <script>
+// 准备多组字体内容，用于切换
 const fontsData = [
   ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
   ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'],
@@ -21,23 +29,34 @@ const fontsData = [
 
 let numbers = [];
 let currentFontIndex = 0;
-let currentState = 0; 
+let currentState = 0; // 0: 正常圆环, 1: 混沌巨大化, 2: 垂直错落
 let isDarkMode = true;
 let lastSwitchTime = 0;
 
 class ClockNumber {
   constructor(index) {
-    this.index = index;
-    this.x = 0; this.y = 0;
-    this.targetX = 0; this.targetY = 0;
-    this.scale = 1; this.targetScale = 1;
-    this.angle = 0; this.targetAngle = 0;
-    this.isOutline = false;
+    this.index = index; // 1-12
+    
+    // 当前属性
+    this.x = 0;
+    this.y = 0;
+    this.scale = 1;
+    this.angle = 0;
+    this.opacity = 255;
+    
+    // 目标属性（用于缓动动画）
+    this.targetX = 0;
+    this.targetY = 0;
+    this.targetScale = 1;
+    this.targetAngle = 0;
+    
+    // 是否为空心字（增加排版层次感）
+    this.isOutline = random() > 0.7; 
   }
 
   update() {
-    // 使用 0.05 - 0.1 之间的数值可以调节运动的“粘性”
-    let ease = 0.07; 
+    // 核心：使用 lerp (线性插值) 实现极致顺滑的过渡动画
+    const ease = 0.05;
     this.x = lerp(this.x, this.targetX, ease);
     this.y = lerp(this.y, this.targetY, ease);
     this.scale = lerp(this.scale, this.targetScale, ease);
@@ -51,12 +70,19 @@ class ClockNumber {
     scale(this.scale);
     
     let txt = fontsData[currentFontIndex][this.index - 1];
+    
+    // 根据黑白模式设置颜色
     let fgColor = isDarkMode ? 255 : 0;
+    let bgColor = isDarkMode ? 0 : 255;
 
-    if (this.isOutline) {
-      noFill(); stroke(fgColor); strokeWeight(1);
+    if (this.isOutline && currentState === 1) {
+      // 混沌状态下，部分字体变成空心，增加视觉留白和高级感
+      noFill();
+      stroke(fgColor);
+      strokeWeight(1.5);
     } else {
-      fill(fgColor); noStroke();
+      fill(fgColor);
+      noStroke();
     }
 
     textAlign(CENTER, CENTER);
@@ -68,29 +94,40 @@ class ClockNumber {
 function setup() {
   createCanvas(windowWidth, windowHeight);
   angleMode(DEGREES);
+  // 使用无衬线字体，强化极简视觉冲击力
   textFont('Helvetica Neue, Helvetica, Arial, sans-serif'); 
   textStyle(BOLD);
 
+  // 初始化 12 个数字实例
   for (let i = 1; i <= 12; i++) {
     numbers.push(new ClockNumber(i));
   }
-  updateLayout();
+  
+  updateLayout(); // 初始布局
 }
 
 function draw() {
-  background(isDarkMode ? 15 : 240);
+  // 背景颜色平滑过渡
+  let bgTarget = isDarkMode ? 15 : 240;
+  background(bgTarget);
 
-  // 4秒自动切换状态
+  // 每隔 4 秒切换一次排版状态和字体
   if (millis() - lastSwitchTime > 4000) {
     currentFontIndex = (currentFontIndex + 1) % fontsData.length;
     currentState = (currentState + 1) % 3;
-    if (currentState === 0) isDarkMode = !isDarkMode; // 只有回到圆环时才可能反色
+    
+    // 每次进入圆环状态时，有 50% 概率反转黑白模式
+    if (currentState === 0 && random() > 0.5) {
+      isDarkMode = !isDarkMode;
+    }
+    
     updateLayout();
     lastSwitchTime = millis();
   }
 
-  translate(width / 2, height / 2);
+  translate(width / 2, height / 2); // 坐标系移至中心
 
+  // 更新并绘制数字
   for (let num of numbers) {
     num.update();
     num.display();
@@ -99,60 +136,91 @@ function draw() {
   drawHands();
 }
 
+// 布局计算逻辑
 function updateLayout() {
-  let radius = min(width, height) * 0.35;
+  let radius = min(width, height) * 0.35; // 表盘半径
 
   for (let i = 0; i < numbers.length; i++) {
     let num = numbers[i];
-    let clockAngle = map(i + 1, 1, 12, 30, 360) - 90;
+    // 时钟的 12 点在正上方（-90度），所以要调整角度
+    let clockAngle = map(i + 1, 1, 12, 30, 360) - 90; 
 
     if (currentState === 0) {
-      // 秩序状态
+      // 状态 0：标准圆环排列，秩序感
       num.targetX = radius * cos(clockAngle);
       num.targetY = radius * sin(clockAngle);
-      num.targetScale = 2;
-      num.targetAngle = clockAngle + 90;
+      num.targetScale = map(width, 300, 1920, 1, 3); // 响应式缩放
+      num.targetAngle = clockAngle + 90; // 让文字朝向圆心
       num.isOutline = false;
+
     } else if (currentState === 1) {
-      // 混沌状态：利用巨大缩放产生视觉冲击
-      num.targetX = random(-width * 0.3, width * 0.3);
-      num.targetY = random(-height * 0.3, height * 0.3);
-      num.targetScale = random(3, 15);
-      num.targetAngle = random([-90, 0, 90, 180]);
-      num.isOutline = random() > 0.5;
+      // 状态 1：混沌与张力，利用巨大的 Scale 和错位创造视觉冲击，强调大量留白
+      num.targetX = random(-width * 0.4, width * 0.4);
+      num.targetY = random(-height * 0.4, height * 0.4);
+      num.targetScale = random(2, 12); 
+      num.targetAngle = random([-90, 0, 90, 180]); // 限制为正交角度，保持一定的排版规则
+      num.isOutline = random() > 0.6; // 随机空心字
+
     } else if (currentState === 2) {
-      // 垂直画册状态
-      let step = (height * 0.7) / 12;
-      num.targetX = random(-40, 40);
-      num.targetY = -height * 0.35 + i * step;
-      num.targetScale = random(1.5, 5);
+      // 状态 2：垂直/水平错落排版，类似海报设计
+      let step = (height * 0.6) / 12;
+      num.targetX = random(-50, 50); // 在中心线附近轻微错开
+      num.targetY = -height * 0.3 + i * step;
+      num.targetScale = random(1.5, 4);
       num.targetAngle = 0;
       num.isOutline = false;
     }
   }
 }
 
+// 绘制极简风格的指针
 function drawHands() {
-  let hr = hour(); let mn = minute(); let sc = second();
-  let scA = map(sc, 0, 60, 0, 360) - 90;
-  let mnA = map(mn + sc/60, 0, 60, 0, 360) - 90;
-  let hrA = map(hr % 12 + mn/60, 0, 12, 0, 360) - 90;
+  let hr = hour();
+  let mn = minute();
+  let sc = second();
 
-  let fg = isDarkMode ? 255 : 0;
+  // 指针平滑运动计算
+  let secondAngle = map(sc, 0, 60, 0, 360) - 90;
+  let minuteAngle = map(mn + sc/60, 0, 60, 0, 360) - 90;
+  let hourAngle = map(hr % 12 + mn/60, 0, 12, 0, 360) - 90;
+
+  let fgColor = isDarkMode ? 255 : 0;
+  let accentColor = color(255, 50, 50); // 红色秒针点缀
+
   push();
-  stroke(fg);
-  strokeWeight(4); line(0, 0, 70 * cos(hrA), 70 * sin(hrA)); // 时针
-  strokeWeight(2); line(0, 0, 110 * cos(mnA), 110 * sin(mnA)); // 分针
-  stroke(255, 50, 50); strokeWeight(1.5); 
-  line(0, 0, 140 * cos(scA), 140 * sin(scA)); // 秒针
-  fill(255, 50, 50); noStroke(); circle(140 * cos(scA), 140 * sin(scA), 6);
-  fill(fg); circle(0, 0, 8);
+  // 时针
+  stroke(fgColor);
+  strokeWeight(4);
+  strokeCap(SQUARE);
+  line(0, 0, 80 * cos(hourAngle), 80 * sin(hourAngle));
+
+  // 分针
+  strokeWeight(2);
+  line(0, 0, 130 * cos(minuteAngle), 130 * sin(minuteAngle));
+
+  // 秒针（带一个小圆点配重，增加细节质感）
+  stroke(accentColor);
+  strokeWeight(1.5);
+  let secX = 160 * cos(secondAngle);
+  let secY = 160 * sin(secondAngle);
+  line(-20 * cos(secondAngle), -20 * sin(secondAngle), secX, secY);
+  
+  fill(accentColor);
+  noStroke();
+  circle(secX, secY, 6);
+  
+  // 中心轴点
+  fill(fgColor);
+  circle(0, 0, 8);
+  fill(isDarkMode ? 0 : 255);
+  circle(0, 0, 3);
   pop();
 }
 
+// 窗口尺寸改变时自适应
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  updateLayout();
+  updateLayout(); // 重新计算位置
 }
 </script>
 </body>
