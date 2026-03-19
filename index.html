@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YZS | Ultra Typography Clock</title>
+  <title>Minimalist Typography Clock</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
@@ -12,7 +12,6 @@
 </head>
 <body>
 <script>
-// 预设字体内容：阿拉伯数字、罗马数字、中文、英文
 const fontsData = [
   ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
   ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'],
@@ -37,8 +36,8 @@ class ClockNumber {
   }
 
   update() {
-    // 调低数值让动作更有“粘滞感”和体量感
-    let ease = 0.06; 
+    // 使用 0.05 - 0.1 之间的数值可以调节运动的“粘性”
+    let ease = 0.07; 
     this.x = lerp(this.x, this.targetX, ease);
     this.y = lerp(this.y, this.targetY, ease);
     this.scale = lerp(this.scale, this.targetScale, ease);
@@ -52,21 +51,15 @@ class ClockNumber {
     scale(this.scale);
     
     let txt = fontsData[currentFontIndex][this.index - 1];
-    
-    // 在 DIFFERENCE 模式下，白色文字在黑底上显白，在白字叠加处显黑
-    fill(255); 
+    let fgColor = isDarkMode ? 255 : 0;
 
     if (this.isOutline) {
-      noFill(); 
-      stroke(255); 
-      // 动态描边粗细：字越大，线越细，增加精致感
-      strokeWeight(1.5 / this.scale); 
+      noFill(); stroke(fgColor); strokeWeight(1);
     } else {
-      noStroke();
+      fill(fgColor); noStroke();
     }
 
     textAlign(CENTER, CENTER);
-    // 使用本地最粗的黑体
     text(txt, 0, 0);
     pop();
   }
@@ -75,9 +68,8 @@ class ClockNumber {
 function setup() {
   createCanvas(windowWidth, windowHeight);
   angleMode(DEGREES);
-  // 强制指定最粗字重
   textFont('Helvetica Neue, Helvetica, Arial, sans-serif'); 
-  textStyle('black'); 
+  textStyle(BOLD);
 
   for (let i = 1; i <= 12; i++) {
     numbers.push(new ClockNumber(i));
@@ -86,20 +78,16 @@ function setup() {
 }
 
 function draw() {
-  // 基础背景
-  background(isDarkMode ? 10 : 245);
+  background(isDarkMode ? 15 : 240);
 
-  // 每 4 秒切换状态
+  // 4秒自动切换状态
   if (millis() - lastSwitchTime > 4000) {
     currentFontIndex = (currentFontIndex + 1) % fontsData.length;
     currentState = (currentState + 1) % 3;
-    if (currentState === 0) isDarkMode = !isDarkMode;
+    if (currentState === 0) isDarkMode = !isDarkMode; // 只有回到圆环时才可能反色
     updateLayout();
     lastSwitchTime = millis();
   }
-
-  // 开启差异混合模式：产生极强的视觉张力和自动反色
-  blendMode(DIFFERENCE);
 
   translate(width / 2, height / 2);
 
@@ -108,42 +96,36 @@ function draw() {
     num.display();
   }
 
-  // 绘制指针
   drawHands();
-  
-  // 重置混合模式，确保背景绘制正常
-  blendMode(BLEND);
 }
 
 function updateLayout() {
-  let radius = min(width, height) * 0.42;
+  let radius = min(width, height) * 0.35;
 
   for (let i = 0; i < numbers.length; i++) {
     let num = numbers[i];
     let clockAngle = map(i + 1, 1, 12, 30, 360) - 90;
 
     if (currentState === 0) {
-      // 状态 0：秩序圆环 - 字体适中但清晰
+      // 秩序状态
       num.targetX = radius * cos(clockAngle);
       num.targetY = radius * sin(clockAngle);
-      num.targetScale = 4; // 足够大的基础缩放
-      num.targetAngle = 0; // 保持文字水平阅读
+      num.targetScale = 2;
+      num.targetAngle = clockAngle + 90;
       num.isOutline = false;
-
     } else if (currentState === 1) {
-      // 状态 1：极致冲击 - 巨型文字超出屏幕
-      num.targetX = random(-width * 0.4, width * 0.4);
-      num.targetY = random(-height * 0.4, height * 0.4);
-      num.targetScale = random(10, 40); // 极大的缩放比例
+      // 混沌状态：利用巨大缩放产生视觉冲击
+      num.targetX = random(-width * 0.3, width * 0.3);
+      num.targetY = random(-height * 0.3, height * 0.3);
+      num.targetScale = random(3, 15);
       num.targetAngle = random([-90, 0, 90, 180]);
-      num.isOutline = random() > 0.4; // 随机空心字
-
+      num.isOutline = random() > 0.5;
     } else if (currentState === 2) {
-      // 状态 2：垂直画册排版 - 模拟杂志封面
-      let step = (height * 0.85) / 12;
-      num.targetX = (i % 2 == 0 ? -1 : 1) * (width * 0.15); // 左右交错
-      num.targetY = -height * 0.4 + i * step;
-      num.targetScale = random(6, 15);
+      // 垂直画册状态
+      let step = (height * 0.7) / 12;
+      num.targetX = random(-40, 40);
+      num.targetY = -height * 0.35 + i * step;
+      num.targetScale = random(1.5, 5);
       num.targetAngle = 0;
       num.isOutline = false;
     }
@@ -156,22 +138,16 @@ function drawHands() {
   let mnA = map(mn + sc/60, 0, 60, 0, 360) - 90;
   let hrA = map(hr % 12 + mn/60, 0, 12, 0, 360) - 90;
 
-  // 在 DIFFERENCE 模式下用白色，会自动在深浅色块上切换
-  stroke(255); 
-  
-  // 时针 - 短而粗
-  strokeWeight(12); strokeCap(SQUARE);
-  line(0, 0, 70 * cos(hrA), 70 * sin(hrA)); 
-  
-  // 分针 - 长而细
-  strokeWeight(4); 
-  line(0, 0, 130 * cos(mnA), 130 * sin(mnA)); 
-  
-  // 秒针 - 极细并带一个小圆点
-  strokeWeight(2);
-  line(0, 0, 180 * cos(scA), 180 * sin(scA));
-  noStroke(); fill(255);
-  circle(180 * cos(scA), 180 * sin(scA), 8);
+  let fg = isDarkMode ? 255 : 0;
+  push();
+  stroke(fg);
+  strokeWeight(4); line(0, 0, 70 * cos(hrA), 70 * sin(hrA)); // 时针
+  strokeWeight(2); line(0, 0, 110 * cos(mnA), 110 * sin(mnA)); // 分针
+  stroke(255, 50, 50); strokeWeight(1.5); 
+  line(0, 0, 140 * cos(scA), 140 * sin(scA)); // 秒针
+  fill(255, 50, 50); noStroke(); circle(140 * cos(scA), 140 * sin(scA), 6);
+  fill(fg); circle(0, 0, 8);
+  pop();
 }
 
 function windowResized() {
